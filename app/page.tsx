@@ -84,7 +84,7 @@ ${items
   )
   .join('\n')}
 
-GRAND TOTAL: ${formatCurrency(grandTotal)}`;
+TOTAL: ${formatCurrency(grandTotal)}`;
 
   const handleCopy = async () => {
     try {
@@ -177,7 +177,7 @@ GRAND TOTAL: ${formatCurrency(grandTotal)}`;
                   <button
                     onClick={handleGenerate}
                     disabled={isLoading}
-                    className="w-full sm:w-auto px-6 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto mt-4 sm:mt-0 px-6 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     {isLoading ? (
                       <>

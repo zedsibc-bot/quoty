@@ -32,8 +32,8 @@ export default function LoginPage() {
   const [state, formAction] = useActionState(login, undefined);
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-gray-100 flex items-start sm:items-center justify-center px-6 py-10 sm:py-0">
+      <div className="w-full max-w-sm bg-white border border-gray-200 rounded-xl p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-gray-900 mb-2">
             Quotation Generator

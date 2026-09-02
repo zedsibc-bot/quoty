@@ -141,7 +141,7 @@ Extract the items and prices, return JSON only.`;
 
 ${formattedLines.join('\n')}
 
-GRAND TOTAL: ${formatCurrency(grandTotal)}`;
+TOTAL: ${formatCurrency(grandTotal)}`;
 
     const result: QuotationResult = {
       items,
