@@ -70,6 +70,21 @@ export default function Home() {
     });
   };
 
+  const handleQuantityChange = (index: number, value: number) => {
+    setItems((prev) => {
+      const updated = prev.map((item, i) => {
+        if (i !== index) return item;
+        const qty = Math.max(0, value);
+        return {
+          ...item,
+          quantity: qty,
+          subtotal: item.markedUpPrice * qty,
+        };
+      });
+      return updated;
+    });
+  };
+
   const grandTotal =
     items.length > 0
       ? items.reduce((sum, item) => sum + item.subtotal, 0)
@@ -226,9 +241,18 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                         <span className="font-semibold text-gray-900">
                           {item.size}
                         </span>
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">
-                          Qty {item.quantity}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-500">Qty</span>
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              handleQuantityChange(index, Number(e.target.value))
+                            }
+                            min="0"
+                            className="w-14 px-2 py-1 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
+                          />
+                        </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <input
@@ -317,8 +341,16 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                         <td className="py-2.5 px-3 font-medium text-gray-900">
                           {item.size}
                         </td>
-                        <td className="py-2.5 px-3 text-gray-500">
-                          {item.quantity}
+                        <td className="py-2.5 px-3">
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              handleQuantityChange(index, Number(e.target.value))
+                            }
+                            min="0"
+                            className="w-14 px-2 py-1.5 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
+                          />
                         </td>
                         <td className="py-2.5 px-3 text-gray-500">
                           {item.description}
