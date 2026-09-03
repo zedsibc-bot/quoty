@@ -1,10 +1,61 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2, Copy, Check, AlertCircle, Sparkles, LogOut } from 'lucide-react';
 import { QuotationResult, QuotationItem } from '@/lib/types';
 import { logout } from '@/app/actions/auth';
 import { formatCurrency } from '@/lib/formatCurrency';
+
+interface NumberInputProps {
+  value: number;
+  onChange: (value: number) => void;
+  className?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
+}
+
+function NumberInput({ value, onChange, className, min, max, step, disabled }: NumberInputProps) {
+  const [text, setText] = useState(String(value));
+  const focused = useRef(false);
+
+  useEffect(() => {
+    if (!focused.current) {
+      setText(String(value));
+    }
+  }, [value]);
+
+  return (
+    <input
+      type="number"
+      value={text}
+      min={min}
+      max={max}
+      step={step}
+      disabled={disabled}
+      onFocus={() => {
+        focused.current = true;
+        setText('');
+      }}
+      onChange={(e) => {
+        const next = e.target.value;
+        setText(next);
+        onChange(Number(next));
+      }}
+      onBlur={() => {
+        focused.current = false;
+        if (text === '') {
+          setText(String(value));
+          onChange(value);
+        } else {
+          setText(String(Number(text)));
+        }
+      }}
+      className={className}
+    />
+  );
+}
 
 export default function Home() {
   const [customerRequest, setCustomerRequest] = useState('');
@@ -212,13 +263,11 @@ TOTAL: ${formatCurrency(grandTotal)}${
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Default Markup (%)
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       value={defaultMarkup}
-                      onChange={(e) => setDefaultMarkup(Number(e.target.value))}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      max="1000"
+                      onChange={setDefaultMarkup}
+                      min={0}
+                      max={1000}
                       className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                       disabled={isLoading}
                     />
@@ -278,28 +327,20 @@ TOTAL: ${formatCurrency(grandTotal)}${
                         </span>
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs text-gray-500">Qty</span>
-                          <input
-                            type="number"
+                          <NumberInput
                             value={item.quantity}
-                            onChange={(e) =>
-                              handleQuantityChange(index, Number(e.target.value))
-                            }
-                            onFocus={(e) => e.target.select()}
-                            min="0"
+                            onChange={(n) => handleQuantityChange(index, n)}
+                            min={0}
                             className="w-14 px-2 py-1 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                           />
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <input
-                          type="number"
+                        <NumberInput
                           value={item.markupPercentage}
-                          onChange={(e) =>
-                            handleMarkupChange(index, Number(e.target.value))
-                          }
-                          onFocus={(e) => e.target.select()}
-                          min="0"
-                          step="0.1"
+                          onChange={(n) => handleMarkupChange(index, n)}
+                          min={0}
+                          step={0.1}
                           className="w-16 px-2 py-1 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                         />
                         <span className="text-gray-400 text-sm">%</span>
@@ -308,15 +349,11 @@ TOTAL: ${formatCurrency(grandTotal)}${
                     <div className="flex items-center justify-between mt-1">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs text-gray-500">Disc</span>
-                        <input
-                          type="number"
+                        <NumberInput
                           value={item.discountPercentage}
-                          onChange={(e) =>
-                            handleItemDiscountChange(index, Number(e.target.value))
-                          }
-                          onFocus={(e) => e.target.select()}
-                          min="0"
-                          step="0.1"
+                          onChange={(n) => handleItemDiscountChange(index, n)}
+                          min={0}
+                          step={0.1}
                           className="w-14 px-2 py-1 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                         />
                         <span className="text-gray-400 text-sm">%</span>
@@ -366,14 +403,12 @@ TOTAL: ${formatCurrency(grandTotal)}${
                       General Discount
                     </span>
                     <div className="flex items-center gap-1">
-                      <input
-                        type="number"
+                      <NumberInput
                         value={generalDiscount}
-                        onChange={(e) => setGeneralDiscount(Number(e.target.value))}
-                        onFocus={(e) => e.target.select()}
-                        min="0"
-                        max="100"
-                        step="0.1"
+                        onChange={setGeneralDiscount}
+                        min={0}
+                        max={100}
+                        step={0.1}
                         className="w-16 px-2 py-1 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                       />
                       <span className="text-gray-400 text-sm">%</span>
@@ -447,14 +482,10 @@ TOTAL: ${formatCurrency(grandTotal)}${
                           {item.size}
                         </td>
                         <td className="py-2.5 px-3">
-                          <input
-                            type="number"
+                          <NumberInput
                             value={item.quantity}
-                            onChange={(e) =>
-                              handleQuantityChange(index, Number(e.target.value))
-                            }
-                            onFocus={(e) => e.target.select()}
-                            min="0"
+                            onChange={(n) => handleQuantityChange(index, n)}
+                            min={0}
                             className="w-14 px-2 py-1.5 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                           />
                         </td>
@@ -466,15 +497,11 @@ TOTAL: ${formatCurrency(grandTotal)}${
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <input
-                              type="number"
+                            <NumberInput
                               value={item.markupPercentage}
-                              onChange={(e) =>
-                                handleMarkupChange(index, Number(e.target.value))
-                              }
-                              onFocus={(e) => e.target.select()}
-                              min="0"
-                              step="0.1"
+                              onChange={(n) => handleMarkupChange(index, n)}
+                              min={0}
+                              step={0.1}
                               className="w-20 px-2 py-1.5 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                             />
                             <span className="text-gray-400">%</span>
@@ -482,15 +509,11 @@ TOTAL: ${formatCurrency(grandTotal)}${
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <input
-                              type="number"
+                            <NumberInput
                               value={item.discountPercentage}
-                              onChange={(e) =>
-                                handleItemDiscountChange(index, Number(e.target.value))
-                              }
-                              onFocus={(e) => e.target.select()}
-                              min="0"
-                              step="0.1"
+                              onChange={(n) => handleItemDiscountChange(index, n)}
+                              min={0}
+                              step={0.1}
                               className="w-16 px-2 py-1.5 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                             />
                             <span className="text-gray-400">%</span>
@@ -524,14 +547,12 @@ TOTAL: ${formatCurrency(grandTotal)}${
                       >
                         <div className="flex items-center justify-end gap-2">
                           <span>General Discount</span>
-                          <input
-                            type="number"
+                          <NumberInput
                             value={generalDiscount}
-                            onChange={(e) => setGeneralDiscount(Number(e.target.value))}
-                            onFocus={(e) => e.target.select()}
-                            min="0"
-                            max="100"
-                            step="0.1"
+                            onChange={setGeneralDiscount}
+                            min={0}
+                            max={100}
+                            step={0.1}
                             className="w-20 px-2 py-1.5 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                           />
                           <span className="text-gray-400">%</span>
