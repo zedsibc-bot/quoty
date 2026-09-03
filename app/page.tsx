@@ -9,7 +9,7 @@ import { formatCurrency } from '@/lib/formatCurrency';
 export default function Home() {
   const [customerRequest, setCustomerRequest] = useState('');
   const [supplierRawText, setSupplierRawText] = useState('');
-  const [defaultMarkup, setDefaultMarkup] = useState(25);
+  const [defaultMarkup, setDefaultMarkup] = useState(75);
   const [isLoading, setIsLoading] = useState(false);
   const [items, setItems] = useState<QuotationItem[]>([]);
   const [error, setError] = useState('');
@@ -56,8 +56,8 @@ export default function Home() {
     setItems((prev) => {
       const updated = prev.map((item, i) => {
         if (i !== index) return item;
-        const markup = 1 + value / 100;
-        const markedUpPrice = item.basePrice * markup;
+        const markupDecimal = value / 100;
+        const markedUpPrice = item.basePrice / markupDecimal;
         const subtotal = markedUpPrice * item.quantity;
         return {
           ...item,
@@ -205,7 +205,7 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                   </button>
                 </div>
                 <p className="text-xs text-gray-400">
-                  Applied to every item initially. You can adjust each item&apos;s markup after generating.
+                  Selling Price = Base Price ÷ Markup%. Applied to every item initially. You can adjust each item&apos;s markup after generating.
                 </p>
               </div>
             </div>

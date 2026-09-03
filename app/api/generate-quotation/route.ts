@@ -117,15 +117,14 @@ Extract the items and prices, return JSON only.`;
       );
     }
 
-    const markup = 1 + markupPercentage / 100;
+    const markupDecimal = markupPercentage / 100;
 
     const items: QuotationItem[] = parsedItems.map((item) => {
-      const itemMarkup = markup;
-      const markedUpPrice = item.basePrice * itemMarkup;
+      const markedUpPrice = item.basePrice / markupDecimal;
       const subtotal = markedUpPrice * item.quantity;
       return {
         ...item,
-        markupPercentage: (itemMarkup - 1) * 100,
+        markupPercentage,
         markedUpPrice,
         subtotal,
       };
