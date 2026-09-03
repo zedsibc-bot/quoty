@@ -10,6 +10,7 @@ export default function Home() {
   const [customerRequest, setCustomerRequest] = useState('');
   const [supplierRawText, setSupplierRawText] = useState('');
   const [defaultMarkup, setDefaultMarkup] = useState(75);
+  const [generalDiscount, setGeneralDiscount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [items, setItems] = useState<QuotationItem[]>([]);
   const [error, setError] = useState('');
@@ -35,6 +36,7 @@ export default function Home() {
           customerRequest,
           supplierRawText,
           markupPercentage: defaultMarkup,
+          generalDiscountPercentage: generalDiscount,
         }),
       });
 
@@ -56,13 +58,34 @@ export default function Home() {
     setItems((prev) => {
       const updated = prev.map((item, i) => {
         if (i !== index) return item;
-        const markupDecimal = value / 100;
+        const markupDecimal = value / 100 || 1;
         const markedUpPrice = item.basePrice / markupDecimal;
-        const subtotal = markedUpPrice * item.quantity;
+        const discountDecimal = item.discountPercentage / 100;
+        const discountedPrice = markedUpPrice * (1 - discountDecimal);
+        const subtotal = discountedPrice * item.quantity;
         return {
           ...item,
           markupPercentage: value,
           markedUpPrice,
+          discountedPrice,
+          subtotal,
+        };
+      });
+      return updated;
+    });
+  };
+
+  const handleItemDiscountChange = (index: number, value: number) => {
+    setItems((prev) => {
+      const updated = prev.map((item, i) => {
+        if (i !== index) return item;
+        const discountDecimal = value / 100;
+        const discountedPrice = item.markedUpPrice * (1 - discountDecimal);
+        const subtotal = discountedPrice * item.quantity;
+        return {
+          ...item,
+          discountPercentage: value,
+          discountedPrice,
           subtotal,
         };
       });
@@ -78,7 +101,7 @@ export default function Home() {
         return {
           ...item,
           quantity: qty,
-          subtotal: item.markedUpPrice * qty,
+          subtotal: item.discountedPrice * qty,
         };
       });
       return updated;
@@ -90,16 +113,27 @@ export default function Home() {
       ? items.reduce((sum, item) => sum + item.subtotal, 0)
       : 0;
 
+  const generalDiscountAmount = (grandTotal * generalDiscount) / 100;
+  const finalTotal = grandTotal - generalDiscountAmount;
+
   const formattedOutput = `Quotation
 
 ${items
   .map(
     (item) =>
-      `${item.size} ${item.quantity}pcs --- ${item.description} @ ${formatCurrency(item.markedUpPrice)}/pc = ${formatCurrency(item.subtotal)}`
+      `${item.size} ${item.quantity}pcs --- ${item.description} @ ${
+        item.discountPercentage > 0
+          ? `${formatCurrency(item.discountedPrice)}/pc (${item.discountPercentage}% off ${formatCurrency(item.markedUpPrice)})`
+          : `${formatCurrency(item.discountedPrice)}/pc`
+      } = ${formatCurrency(item.subtotal)}`
   )
   .join('\n')}
 
-TOTAL: ${formatCurrency(grandTotal)}`;
+TOTAL: ${formatCurrency(grandTotal)}${
+    generalDiscount > 0
+      ? `\nDiscount (${generalDiscount}%): -${formatCurrency(generalDiscountAmount)}\nFINAL TOTAL: ${formatCurrency(finalTotal)}`
+      : ''
+  }`;
 
   const handleCopy = async () => {
     try {
@@ -182,6 +216,7 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                       type="number"
                       value={defaultMarkup}
                       onChange={(e) => setDefaultMarkup(Number(e.target.value))}
+                      onFocus={(e) => e.target.select()}
                       min="0"
                       max="1000"
                       className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
@@ -249,6 +284,7 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                             onChange={(e) =>
                               handleQuantityChange(index, Number(e.target.value))
                             }
+                            onFocus={(e) => e.target.select()}
                             min="0"
                             className="w-14 px-2 py-1 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                           />
@@ -261,9 +297,27 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                           onChange={(e) =>
                             handleMarkupChange(index, Number(e.target.value))
                           }
+                          onFocus={(e) => e.target.select()}
                           min="0"
                           step="0.1"
                           className="w-16 px-2 py-1 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
+                        />
+                        <span className="text-gray-400 text-sm">%</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-500">Disc</span>
+                        <input
+                          type="number"
+                          value={item.discountPercentage}
+                          onChange={(e) =>
+                            handleItemDiscountChange(index, Number(e.target.value))
+                          }
+                          onFocus={(e) => e.target.select()}
+                          min="0"
+                          step="0.1"
+                          className="w-14 px-2 py-1 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                         />
                         <span className="text-gray-400 text-sm">%</span>
                       </div>
@@ -280,10 +334,18 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                           {formatCurrency(item.basePrice)}
                         </span>
                       </div>
+                      {item.markupPercentage > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Selling</span>
+                          <span className="text-gray-500 tabular-nums line-through">
+                            {formatCurrency(item.markedUpPrice)}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Selling</span>
+                        <span className="text-gray-500">Discounted</span>
                         <span className="font-medium text-gray-900 tabular-nums">
-                          {formatCurrency(item.markedUpPrice)}
+                          {formatCurrency(item.discountedPrice)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm border-t border-gray-100 pt-1.5">
@@ -298,13 +360,53 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                   </div>
                 ))}
 
-                <div className="flex items-center justify-between border border-gray-200 rounded-lg p-4">
-                  <span className="text-sm font-medium text-gray-500">
-                    Total
-                  </span>
-                  <span className="font-semibold text-gray-900 tabular-nums">
-                    {formatCurrency(grandTotal)}
-                  </span>
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-gray-500">
+                      General Discount
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={generalDiscount}
+                        onChange={(e) => setGeneralDiscount(Number(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        className="w-16 px-2 py-1 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
+                      />
+                      <span className="text-gray-400 text-sm">%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+                    <span className="text-sm font-medium text-gray-500">
+                      Total
+                    </span>
+                    <span className="font-semibold text-gray-900 tabular-nums">
+                      {formatCurrency(grandTotal)}
+                    </span>
+                  </div>
+                  {generalDiscount > 0 && (
+                    <>
+                      <div className="flex items-center justify-between text-sm mt-1">
+                        <span className="text-gray-500">
+                          Discount ({generalDiscount}%)
+                        </span>
+                        <span className="text-gray-500 tabular-nums">
+                          -{formatCurrency(generalDiscountAmount)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-gray-100 pt-2 mt-1">
+                        <span className="text-sm font-semibold text-gray-900">
+                          Final Total
+                        </span>
+                        <span className="font-bold text-gray-900 tabular-nums">
+                          {formatCurrency(finalTotal)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -328,6 +430,9 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                         Markup %
                       </th>
                       <th className="text-right py-2 px-3 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        Disc %
+                      </th>
+                      <th className="text-right py-2 px-3 text-xs font-medium text-gray-400 uppercase tracking-wider">
                         Selling
                       </th>
                       <th className="text-right py-2 px-3 text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -348,6 +453,7 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                             onChange={(e) =>
                               handleQuantityChange(index, Number(e.target.value))
                             }
+                            onFocus={(e) => e.target.select()}
                             min="0"
                             className="w-14 px-2 py-1.5 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
                           />
@@ -366,6 +472,7 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                               onChange={(e) =>
                                 handleMarkupChange(index, Number(e.target.value))
                               }
+                              onFocus={(e) => e.target.select()}
                               min="0"
                               step="0.1"
                               className="w-20 px-2 py-1.5 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
@@ -373,8 +480,24 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                             <span className="text-gray-400">%</span>
                           </div>
                         </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <input
+                              type="number"
+                              value={item.discountPercentage}
+                              onChange={(e) =>
+                                handleItemDiscountChange(index, Number(e.target.value))
+                              }
+                              onFocus={(e) => e.target.select()}
+                              min="0"
+                              step="0.1"
+                              className="w-16 px-2 py-1.5 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
+                            />
+                            <span className="text-gray-400">%</span>
+                          </div>
+                        </td>
                         <td className="py-2.5 px-3 text-right text-gray-900 font-medium tabular-nums">
-                          {formatCurrency(item.markedUpPrice)}
+                          {formatCurrency(item.discountedPrice)}
                         </td>
                         <td className="py-2.5 px-3 text-right font-medium text-gray-900 tabular-nums">
                           {formatCurrency(item.subtotal)}
@@ -385,7 +508,7 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                   <tfoot>
                     <tr className="border-t border-gray-200">
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="py-3 px-3 text-right text-sm font-medium text-gray-500"
                       >
                         Total
@@ -394,6 +517,45 @@ TOTAL: ${formatCurrency(grandTotal)}`;
                         {formatCurrency(grandTotal)}
                       </td>
                     </tr>
+                    <tr className="border-t border-gray-100">
+                      <td
+                        colSpan={7}
+                        className="py-3 px-3 text-right text-sm font-medium text-gray-500"
+                      >
+                        <div className="flex items-center justify-end gap-2">
+                          <span>General Discount</span>
+                          <input
+                            type="number"
+                            value={generalDiscount}
+                            onChange={(e) => setGeneralDiscount(Number(e.target.value))}
+                            onFocus={(e) => e.target.select()}
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            className="w-20 px-2 py-1.5 text-center border border-gray-200 rounded-md text-sm text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
+                          />
+                          <span className="text-gray-400">%</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-right font-medium text-gray-900 tabular-nums">
+                        {generalDiscount > 0
+                          ? `-${formatCurrency(generalDiscountAmount)}`
+                          : '—'}
+                      </td>
+                    </tr>
+                    {generalDiscount > 0 && (
+                      <tr className="border-t border-gray-200 bg-gray-50">
+                        <td
+                          colSpan={7}
+                          className="py-3 px-3 text-right text-sm font-semibold text-gray-900"
+                        >
+                          Final Total
+                        </td>
+                        <td className="py-3 px-3 text-right font-bold text-gray-900 tabular-nums">
+                          {formatCurrency(finalTotal)}
+                        </td>
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
               </div>

@@ -5,6 +5,8 @@ export interface QuotationItem {
   basePrice: number;
   markupPercentage: number;
   markedUpPrice: number;
+  discountPercentage: number;
+  discountedPrice: number;
   subtotal: number;
 }
 
@@ -18,6 +20,8 @@ export interface ParsedItem {
 export interface QuotationResult {
   items: QuotationItem[];
   grandTotal: number;
+  discountAmount: number;
+  finalTotal: number;
   formattedOutput: string;
 }
 
@@ -25,4 +29,5 @@ export interface GenerateQuotationRequest {
   customerRequest: string;
   supplierRawText: string;
   markupPercentage: number;
+  generalDiscountPercentage: number;
 }

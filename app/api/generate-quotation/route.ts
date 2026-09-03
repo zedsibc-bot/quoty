@@ -28,14 +28,22 @@ Parsing rules:
 - If description is not clear from supplier text, construct it as "UNIKA TCT Hole Cutter [size] x [length]"
 - Common lengths: 14mm=35mmL, 18mm=50mm, 22mm=50mm, 25mm=50mm, 32mm=50mm, 35mm=50mm, 42mm=50mm, 50mm=50mm
 
+Supplier discount rule:
+- The supplier text may contain a percentage discount after a price, such as: "less 30%", "-30%", "30% less", "less 30% off", "less 30% discount", "with 30% discount"
+- When a discount is present, it applies to the item it directly precedes or follows
+- Apply the discount to the listed price BEFORE returning basePrice:
+  basePrice = listedPrice * (1 - discountPercentage / 100)
+- Round basePrice to 2 decimal places
+- basePrice must always be the final effective cost AFTER any supplier discount, before markup
+
 Example:
 Customer: "Need 14mm 2pcs and 18mm 3pcs"
-Supplier: "TCT 14mm hole cutter 2810 each, 18mm size is 3690"
+Supplier: "TCT 14mm hole cutter 2810 each less 30%, 18mm size is 3690"
 
 Output:
 {
   "items": [
-    {"size": "14mm", "quantity": 2, "description": "UNIKA TCT Hole Cutter 14mm x 35mmL", "basePrice": 2810},
+    {"size": "14mm", "quantity": 2, "description": "UNIKA TCT Hole Cutter 14mm x 35mmL", "basePrice": 1967},
     {"size": "18mm", "quantity": 3, "description": "UNIKA TCT Hole Cutter 18mm x 50mm", "basePrice": 3690}
   ]
 }
@@ -45,7 +53,7 @@ Return ONLY valid JSON. No explanations or extra text.`;
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
-    const { customerRequest, supplierRawText, markupPercentage } = body;
+    const { customerRequest, supplierRawText, markupPercentage, generalDiscountPercentage } = body;
 
     if (!customerRequest || !supplierRawText || markupPercentage === undefined) {
       return NextResponse.json(
@@ -118,33 +126,50 @@ Extract the items and prices, return JSON only.`;
     }
 
     const markupDecimal = markupPercentage / 100;
+    const generalDiscountDecimal = (generalDiscountPercentage || 0) / 100;
 
     const items: QuotationItem[] = parsedItems.map((item) => {
       const markedUpPrice = item.basePrice / markupDecimal;
-      const subtotal = markedUpPrice * item.quantity;
+      const discountedPrice = markedUpPrice;
+      const subtotal = discountedPrice * item.quantity;
       return {
         ...item,
         markupPercentage,
         markedUpPrice,
+        discountPercentage: 0,
+        discountedPrice,
         subtotal,
       };
     });
 
     const grandTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
 
+    const discountAmount = grandTotal * generalDiscountDecimal;
+    const finalTotal = grandTotal - discountAmount;
+
     const formattedLines = items.map((item) => {
-      return `${item.size} ${item.quantity}pcs --- ${item.description} @ ${formatCurrency(item.markedUpPrice)}/pc = ${formatCurrency(item.subtotal)}`;
+      const priceLabel =
+        item.discountPercentage > 0
+          ? `${formatCurrency(item.discountedPrice)}/pc (${item.discountPercentage}% off ${formatCurrency(item.markedUpPrice)})`
+          : `${formatCurrency(item.discountedPrice)}/pc`;
+      return `${item.size} ${item.quantity}pcs --- ${item.description} @ ${priceLabel} = ${formatCurrency(item.subtotal)}`;
     });
 
-    const formattedOutput = `Quotation
+    let formattedOutput = `Quotation
 
 ${formattedLines.join('\n')}
 
 TOTAL: ${formatCurrency(grandTotal)}`;
 
+    if (discountAmount > 0) {
+      formattedOutput += `\nDiscount (${generalDiscountPercentage}%): -${formatCurrency(discountAmount)}\nFINAL TOTAL: ${formatCurrency(finalTotal)}`;
+    }
+
     const result: QuotationResult = {
       items,
       grandTotal,
+      discountAmount,
+      finalTotal,
       formattedOutput,
     };
 
