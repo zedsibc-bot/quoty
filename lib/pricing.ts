@@ -15,7 +15,7 @@ export function calculateItemPricing(
   quantity: number
 ): CalculatedItemPricing {
   const markupDecimal = markupPercentage / 100 || 1;
-  const markedUpPrice = basePrice / markupDecimal;
+  const markedUpPrice = roundCurrency(basePrice / markupDecimal);
   const discountedPrice = roundCurrency(
     markedUpPrice * (1 - discountPercentage / 100)
   );
