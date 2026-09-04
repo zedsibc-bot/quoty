@@ -5,6 +5,7 @@ import { Loader2, Copy, Check, AlertCircle, Sparkles, LogOut } from 'lucide-reac
 import { QuotationResult, QuotationItem } from '@/lib/types';
 import { logout } from '@/app/actions/auth';
 import { formatCurrency } from '@/lib/formatCurrency';
+import { calculateItemPricing, roundCurrency } from '@/lib/pricing';
 
 interface NumberInputProps {
   value: number;
@@ -109,17 +110,16 @@ export default function Home() {
     setItems((prev) => {
       const updated = prev.map((item, i) => {
         if (i !== index) return item;
-        const markupDecimal = value / 100 || 1;
-        const markedUpPrice = item.basePrice / markupDecimal;
-        const discountDecimal = item.discountPercentage / 100;
-        const discountedPrice = markedUpPrice * (1 - discountDecimal);
-        const subtotal = discountedPrice * item.quantity;
+        const pricing = calculateItemPricing(
+          item.basePrice,
+          value,
+          item.discountPercentage,
+          item.quantity
+        );
         return {
           ...item,
           markupPercentage: value,
-          markedUpPrice,
-          discountedPrice,
-          subtotal,
+          ...pricing,
         };
       });
       return updated;
@@ -130,14 +130,16 @@ export default function Home() {
     setItems((prev) => {
       const updated = prev.map((item, i) => {
         if (i !== index) return item;
-        const discountDecimal = value / 100;
-        const discountedPrice = item.markedUpPrice * (1 - discountDecimal);
-        const subtotal = discountedPrice * item.quantity;
+        const pricing = calculateItemPricing(
+          item.basePrice,
+          item.markupPercentage,
+          value,
+          item.quantity
+        );
         return {
           ...item,
           discountPercentage: value,
-          discountedPrice,
-          subtotal,
+          ...pricing,
         };
       });
       return updated;
@@ -152,7 +154,7 @@ export default function Home() {
         return {
           ...item,
           quantity: qty,
-          subtotal: item.discountedPrice * qty,
+          subtotal: roundCurrency(item.discountedPrice * qty),
         };
       });
       return updated;
@@ -161,11 +163,13 @@ export default function Home() {
 
   const grandTotal =
     items.length > 0
-      ? items.reduce((sum, item) => sum + item.subtotal, 0)
+      ? roundCurrency(items.reduce((sum, item) => sum + item.subtotal, 0))
       : 0;
 
-  const generalDiscountAmount = (grandTotal * generalDiscount) / 100;
-  const finalTotal = grandTotal - generalDiscountAmount;
+  const generalDiscountAmount = roundCurrency(
+    (grandTotal * generalDiscount) / 100
+  );
+  const finalTotal = roundCurrency(grandTotal - generalDiscountAmount);
 
   const formattedOutput = `Quotation
 

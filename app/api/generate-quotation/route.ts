@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ParsedItem, QuotationItem, QuotationResult } from '@/lib/types';
 import { formatCurrency } from '@/lib/formatCurrency';
+import { calculateItemPricing, roundCurrency } from '@/lib/pricing';
 
 const SYSTEM_PROMPT = `You are a quotation parsing assistant for a hardware supplier in the Philippines.
 
@@ -125,27 +126,29 @@ Extract the items and prices, return JSON only.`;
       );
     }
 
-    const markupDecimal = markupPercentage / 100;
     const generalDiscountDecimal = (generalDiscountPercentage || 0) / 100;
 
     const items: QuotationItem[] = parsedItems.map((item) => {
-      const markedUpPrice = item.basePrice / markupDecimal;
-      const discountedPrice = markedUpPrice;
-      const subtotal = discountedPrice * item.quantity;
+      const pricing = calculateItemPricing(
+        item.basePrice,
+        markupPercentage,
+        0,
+        item.quantity
+      );
       return {
         ...item,
         markupPercentage,
-        markedUpPrice,
+        ...pricing,
         discountPercentage: 0,
-        discountedPrice,
-        subtotal,
       };
     });
 
-    const grandTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+    const grandTotal = roundCurrency(
+      items.reduce((sum, item) => sum + item.subtotal, 0)
+    );
 
-    const discountAmount = grandTotal * generalDiscountDecimal;
-    const finalTotal = grandTotal - discountAmount;
+    const discountAmount = roundCurrency(grandTotal * generalDiscountDecimal);
+    const finalTotal = roundCurrency(grandTotal - discountAmount);
 
     const formattedLines = items.map((item) => {
       const priceLabel =
