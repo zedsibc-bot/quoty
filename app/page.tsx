@@ -160,6 +160,29 @@ export default function Home() {
     });
   };
 
+  const handleDiscountedPriceChange = (index: number, value: number) => {
+    setItems((prev) => {
+      const updated = prev.map((item, i) => {
+        if (i !== index) return item;
+        const discountedPrice = roundCurrency(
+          Math.min(Math.max(0, value), item.markedUpPrice)
+        );
+        const discountPercentage =
+          item.markedUpPrice > 0
+            ? roundCurrency((1 - discountedPrice / item.markedUpPrice) * 100)
+            : 0;
+
+        return {
+          ...item,
+          discountPercentage,
+          discountedPrice,
+          subtotal: roundCurrency(discountedPrice * item.quantity),
+        };
+      });
+      return updated;
+    });
+  };
+
   const handleQuantityChange = (index: number, value: number) => {
     setItems((prev) => {
       const updated = prev.map((item, i) => {
@@ -399,9 +422,17 @@ TOTAL: ${formatCurrency(grandTotal)}${
                       )}
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">Discounted</span>
-                        <span className="font-medium text-gray-900 tabular-nums">
-                          {formatCurrency(item.discountedPrice)}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-400 text-xs">PHP</span>
+                          <NumberInput
+                            value={item.discountedPrice}
+                            onChange={(n) => handleDiscountedPriceChange(index, n)}
+                            min={0}
+                            max={item.markedUpPrice}
+                            step={0.01}
+                            className="w-24 px-2 py-1 text-right border border-gray-200 rounded-md text-sm font-medium text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
+                          />
+                        </div>
                       </div>
                       <div className="flex items-center justify-between text-sm border-t border-gray-100 pt-1.5">
                         <span className="text-gray-500 font-medium">
@@ -486,7 +517,7 @@ TOTAL: ${formatCurrency(grandTotal)}${
                         Disc %
                       </th>
                       <th className="text-right py-2 px-3 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                        Selling
+                        Discounted
                       </th>
                       <th className="text-right py-2 px-3 text-xs font-medium text-gray-400 uppercase tracking-wider">
                         Subtotal
@@ -537,8 +568,18 @@ TOTAL: ${formatCurrency(grandTotal)}${
                             <span className="text-gray-400">%</span>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 text-right text-gray-900 font-medium tabular-nums">
-                          {formatCurrency(item.discountedPrice)}
+                        <td className="py-2.5 px-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="text-gray-400 text-xs">PHP</span>
+                            <NumberInput
+                              value={item.discountedPrice}
+                              onChange={(n) => handleDiscountedPriceChange(index, n)}
+                              min={0}
+                              max={item.markedUpPrice}
+                              step={0.01}
+                              className="w-24 px-2 py-1.5 text-right border border-gray-200 rounded-md text-sm font-medium text-gray-900 focus:border-gray-400 focus:outline-none transition-colors"
+                            />
+                          </div>
                         </td>
                         <td className="py-2.5 px-3 text-right font-medium text-gray-900 tabular-nums">
                           {formatCurrency(item.subtotal)}
