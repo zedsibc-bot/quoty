@@ -51,8 +51,11 @@ Output:
 
 Return ONLY valid JSON. No explanations or extra text.`;
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const startedAt = Date.now();
     const body = await request.json();
     const { customerRequest, supplierRawText, markupPercentage, generalDiscountPercentage } = body;
 
@@ -79,22 +82,46 @@ ${supplierRawText}
 
 Extract the items and prices, return JSON only.`;
 
-    const aiResponse = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-v4-flash',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userMessage },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 50_000);
+
+    let aiResponse: Response;
+    try {
+      aiResponse = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'deepseek-v4-flash',
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: userMessage },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+        }),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      const durationSeconds = Math.round((Date.now() - startedAt) / 100) / 10;
+      console.error('DeepSeek fetch failed:', error);
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        return NextResponse.json(
+          { error: `AI service timed out after ${durationSeconds}s. Please try again.` },
+          { status: 504 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: 'Could not reach AI service. Please check the server network and try again.' },
+        { status: 502 }
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!aiResponse.ok) {
       const errorData = await aiResponse.text();

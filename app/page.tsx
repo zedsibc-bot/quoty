@@ -93,14 +93,28 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate quotation');
+        const errorText = await response.text();
+        let message = 'Failed to generate quotation';
+
+        try {
+          const errorData = JSON.parse(errorText) as { error?: string };
+          message = errorData.error || message;
+        } catch {
+          message = errorText || message;
+        }
+
+        throw new Error(message);
       }
 
       const data: QuotationResult = await response.json();
       setItems(data.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      setError(
+        message === 'Failed to fetch'
+          ? 'Could not reach the quotation API. Check the network connection or server availability, then try again.'
+          : message
+      );
     } finally {
       setIsLoading(false);
     }
