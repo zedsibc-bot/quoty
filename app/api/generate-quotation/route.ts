@@ -3,55 +3,44 @@ import { ParsedItem, QuotationItem, QuotationResult } from '@/lib/types';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { calculateItemPricing, roundCurrency } from '@/lib/pricing';
 
-const SYSTEM_PROMPT = `You are a quotation parsing assistant for a hardware supplier in the Philippines.
+const AI_TIMEOUT_MS = 8_500;
+const MAX_AI_INPUT_CHARS = 12_000;
 
-Your task is to extract structured data from two inputs:
-1. Customer's request (items, sizes, quantities)
-2. Supplier's raw pricing text (messy, contains prices)
+const SYSTEM_PROMPT = `Extract hardware quotation items from the customer request and supplier raw text.
 
 Return a JSON object with this exact structure:
 {
   "items": [
     {
-      "size": "string (e.g., '14mm')",
+      "size": "string (e.g., '14mm', '#24', or empty if no size)",
       "quantity": number,
       "description": "string (product description from supplier text or constructed)",
-      "basePrice": number (price per piece from supplier, no currency symbols)
+      "basePrice": number (price per unit from supplier, no currency symbols)
     }
   ]
 }
 
 Parsing rules:
-- Extract size and quantity from customer request (e.g., "14mm 2pcs" or "2 pieces of 14mm")
-- Match each item to its corresponding price in supplier text
-- Prices may appear as: "2810", "₱2,810", "2810.00", "2,810.00", "2810 pesos"
-- Remove all currency symbols, commas, and text when extracting prices
-- If description is not clear from supplier text, construct it as "UNIKA TCT Hole Cutter [size] x [length]"
-- Common lengths: 14mm=35mmL, 18mm=50mm, 22mm=50mm, 25mm=50mm, 32mm=50mm, 35mm=50mm, 42mm=50mm, 50mm=50mm
-
-Supplier discount rule:
-- The supplier text may contain a percentage discount after a price, such as: "less 30%", "-30%", "30% less", "less 30% off", "less 30% discount", "with 30% discount"
-- When a discount is present, it applies to the item it directly precedes or follows
-- Apply the discount to the listed price BEFORE returning basePrice:
-  basePrice = listedPrice * (1 - discountPercentage / 100)
-- Round basePrice to 2 decimal places
-- basePrice must always be the final effective cost AFTER any supplier discount, before markup
-
-Example:
-Customer: "Need 14mm 2pcs and 18mm 3pcs"
-Supplier: "TCT 14mm hole cutter 2810 each less 30%, 18mm size is 3690"
-
-Output:
-{
-  "items": [
-    {"size": "14mm", "quantity": 2, "description": "UNIKA TCT Hole Cutter 14mm x 35mmL", "basePrice": 1967},
-    {"size": "18mm", "quantity": 3, "description": "UNIKA TCT Hole Cutter 18mm x 50mm", "basePrice": 3690}
-  ]
-}
+- Extract item names, sizes, and quantities from the customer request.
+- Match each requested item to its corresponding supplier item and price.
+- Prices may appear as: "2810", "PHP 2,810", "2810.00", "2,810.00", "2810 pesos", "Ph195.00".
+- Remove all currency symbols, commas, and text when extracting prices.
+- If supplier text includes a discount near a price, apply it before returning basePrice.
+- basePrice is the final supplier cost per unit before markup, rounded to 2 decimals.
+- If a requested item has no matching supplier price, omit it.
 
 Return ONLY valid JSON. No explanations or extra text.`;
 
-export const maxDuration = 60;
+export const maxDuration = 10;
+
+function compactText(value: string): string {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, MAX_AI_INPUT_CHARS);
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -75,15 +64,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const userMessage = `Customer request:
-${customerRequest}
+${compactText(customerRequest)}
 
 Supplier raw text:
-${supplierRawText}
+${compactText(supplierRawText)}
 
 Extract the items and prices, return JSON only.`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 50_000);
+    const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
     let aiResponse: Response;
     try {
@@ -99,7 +88,9 @@ Extract the items and prices, return JSON only.`;
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: userMessage },
           ],
+          thinking: { type: 'disabled' },
           response_format: { type: 'json_object' },
+          max_tokens: 1500,
           temperature: 0.1,
         }),
         signal: controller.signal,
@@ -110,7 +101,7 @@ Extract the items and prices, return JSON only.`;
 
       if (error instanceof Error && error.name === 'AbortError') {
         return NextResponse.json(
-          { error: `AI service timed out after ${durationSeconds}s. Please try again.` },
+          { error: `AI service timed out after ${durationSeconds}s. Please shorten the supplier text or try again.` },
           { status: 504 }
         );
       }
