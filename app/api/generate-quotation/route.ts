@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ParsedItem, QuotationItem, QuotationResult } from '@/lib/types';
-import { formatCurrency } from '@/lib/formatCurrency';
 import { calculateItemPricing, roundCurrency } from '@/lib/pricing';
+import { formatCustomerQuotation } from '@/lib/customerQuotation';
 
 const AI_TIMEOUT_MS = 8_500;
 const MAX_AI_INPUT_CHARS = 12_000;
@@ -168,23 +168,13 @@ Extract the items and prices, return JSON only.`;
     const discountAmount = roundCurrency(grandTotal * generalDiscountDecimal);
     const finalTotal = roundCurrency(grandTotal - discountAmount);
 
-    const formattedLines = items.map((item) => {
-      const priceLabel =
-        item.discountPercentage > 0
-          ? `${formatCurrency(item.discountedPrice)}/pc (${item.discountPercentage}% off ${formatCurrency(item.markedUpPrice)})`
-          : `${formatCurrency(item.discountedPrice)}/pc`;
-      return `${item.size} ${item.quantity}pcs --- ${item.description} @ ${priceLabel} = ${formatCurrency(item.subtotal)}`;
+    const formattedOutput = formatCustomerQuotation({
+      items,
+      grandTotal,
+      generalDiscountPercentage,
+      discountAmount,
+      finalTotal,
     });
-
-    let formattedOutput = `Quotation
-
-${formattedLines.join('\n')}
-
-TOTAL: ${formatCurrency(grandTotal)}`;
-
-    if (discountAmount > 0) {
-      formattedOutput += `\nDiscount (${generalDiscountPercentage}%): -${formatCurrency(discountAmount)}\nFINAL TOTAL: ${formatCurrency(finalTotal)}`;
-    }
 
     const result: QuotationResult = {
       items,

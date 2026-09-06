@@ -6,6 +6,7 @@ import { QuotationResult, QuotationItem } from '@/lib/types';
 import { logout } from '@/app/actions/auth';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { calculateItemPricing, roundCurrency } from '@/lib/pricing';
+import { formatCustomerQuotation } from '@/lib/customerQuotation';
 
 interface NumberInputProps {
   value: number;
@@ -208,24 +209,13 @@ export default function Home() {
   );
   const finalTotal = roundCurrency(grandTotal - generalDiscountAmount);
 
-  const formattedOutput = `Quotation
-
-${items
-  .map(
-    (item) =>
-      `${item.size} ${item.quantity}pcs --- ${item.description} @ ${
-        item.discountPercentage > 0
-          ? `${formatCurrency(item.discountedPrice)}/pc (${item.discountPercentage}% off ${formatCurrency(item.markedUpPrice)})`
-          : `${formatCurrency(item.discountedPrice)}/pc`
-      } = ${formatCurrency(item.subtotal)}`
-  )
-  .join('\n')}
-
-TOTAL: ${formatCurrency(grandTotal)}${
-    generalDiscount > 0
-      ? `\nDiscount (${generalDiscount}%): -${formatCurrency(generalDiscountAmount)}\nFINAL TOTAL: ${formatCurrency(finalTotal)}`
-      : ''
-  }`;
+  const formattedOutput = formatCustomerQuotation({
+    items,
+    grandTotal,
+    generalDiscountPercentage: generalDiscount,
+    discountAmount: generalDiscountAmount,
+    finalTotal,
+  });
 
   const handleCopy = async () => {
     try {
